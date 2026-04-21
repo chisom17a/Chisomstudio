@@ -1,0 +1,69 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- GLOBAL HELPER FUNCTIONS ---
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- COLLECTION RULES ---
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isOwner(userId) && request.resource.data.role == resource.data.role || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /roles_admin/{userId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /portfolio_items_public/{portfolioItemId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /portfolio_items_drafts/{portfolioItemId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /custom_pages/{pageId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /app_settings/globalSettings {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /newsletter_subscribers/{subscriberId} {
+      allow create: if true;
+      allow read, delete: if isAdmin();
+    }
+
+    match /site_analytics/global {
+      allow read: if isAdmin();
+      allow write: if true; 
+    }
+
+    match /contact_inquiries/{inquiryId} {
+      allow create: if true;
+      allow read, delete: if isAdmin();
+    }
+  }
+}
